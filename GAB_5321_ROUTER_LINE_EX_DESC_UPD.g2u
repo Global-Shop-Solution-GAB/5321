@@ -1,0 +1,145 @@
+Program.Sub.ScreenSU.Start
+Gui.F_Router..Create
+Gui.F_Router..Caption("Update Router Line Extra Description")
+Gui.F_Router..Size(13065,9555)
+Gui.F_Router..MinX(0)
+Gui.F_Router..MinY(0)
+Gui.F_Router..Position(0,0)
+Gui.F_Router..FontSize(9)
+Gui.F_Router..BackColor(-2147483633)
+Gui.F_Router..MousePointer(0)
+Gui.F_Router..Event(UnLoad,Unload)
+Gui.F_Router.GsGCRouter.Create(GsGridControl)
+Gui.F_Router.GsGCRouter.Size(12660,8250)
+Gui.F_Router.GsGCRouter.Position(75,660)
+Gui.F_Router.cmdUpdate.Create(Button)
+Gui.F_Router.cmdUpdate.Size(1710,525)
+Gui.F_Router.cmdUpdate.Position(75,60)
+Gui.F_Router.cmdUpdate.Caption("Update")
+Gui.F_Router.cmdUpdate.FontSize(9)
+Gui.F_Router.cmdUpdate.Event(Click,cmdUpdate_Click)
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+V.Global.sOpCode.Declare
+V.Global.sWC.Declare
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+F.Intrinsic.Control.If(V.Caller.Hook,=,11210)
+	V.Passed.000203.Set("Similar Router")
+F.Intrinsic.Control.ElseIf(V.Caller.Hook,=,11430)
+	V.Global.sWC.Set(V.Passed.000112)
+	V.Global.sOpCode.Set(V.Passed.000114)
+	F.Intrinsic.Control.If(V.Global.sWC.Trim,<>,"")
+		F.Intrinsic.Control.If(V.Global.sOpCode.Trim,<>,"")
+			F.Intrinsic.Control.If(V.Passed.000013,=,"Labor")
+				F.Intrinsic.Control.CallSub(LoadRouter)
+			F.Intrinsic.Control.EndIf
+		F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.EndIf
+Program.Sub.Main.End
+
+Program.Sub.Unload.Start
+F.Data.DataTable.Close("dtRouter")
+F.ODBC.Connection!conx.Close
+F.Intrinsic.Control.End
+Program.Sub.Unload.End
+
+Program.Sub.LoadRouter.Start
+V.Local.sIcon.Declare
+V.Local.sRtr.Declare
+V.Local.sSQL.Declare
+
+F.Intrinsic.String.Build("{0}\ART\gss2.ico",V.Caller.GlobalDir,V.Local.sIcon)
+Gui.F_Router..Icon(V.Local.sIcon)
+
+F.ODBC.Connection!conx.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass,600)
+
+V.Local.sRtr.Set(V.Passed.008000)
+F.Intrinsic.String.Build("select router as Router, line_router as Line from v_router_line where part_wc_outside = '{0}' and operation = '{1}' and LMO = 'L' and router <> '{2}' order by router",V.Global.sWC.Trim,V.Global.sOpCode.Trim,V.Local.sRtr.Trim,V.Local.sSQL)
+F.Data.DataTable.CreateFromSQL("dtRouter","conx",V.Local.sSQL,True)
+F.Data.DataTable.AddColumn("dtRouter","RouterDesc","String","")
+F.Data.DataTable.AddColumn("dtRouter","Description","String","")
+F.Data.DataTable.AddColumn("dtRouter","Selected","Boolean",False)
+F.Data.DataTable.AddExpressionColumn("dtRouter","RouterSeq","String","Router+Line")
+
+F.Data.Dictionary.CreateFromSQL("dicRouter","conx","select router, description_router from v_router_header")
+F.Data.Dictionary.SetDefaultReturn("dicRouter","")
+F.Data.DataTable.FillFromDictionary("dtRouter","dicRouter","Router","RouterDesc")
+F.Data.Dictionary.Close("dicRouter")
+
+F.Data.Dictionary.CreateFromSQL("dicRouter","conx","select rtr_number+rtr_seq, TEXT from v_rtr_seq_comments")
+F.Data.Dictionary.SetDefaultReturn("dicRouter","")
+F.Data.DataTable.FillFromDictionary("dtRouter","dicRouter","RouterSeq","Description")
+F.Data.Dictionary.Close("dicRouter")
+
+Gui.F_Router.GsGCRouter.AddGridviewFromDatatable("gvRtr","dtRouter")
+Gui.F_Router.GsGCRouter.MainView("gvRtr")
+
+Gui.F_Router.GsGCRouter.SetColumnProperty("gvRtr","RouterSeq","Visible",False)
+Gui.F_Router.GsGCRouter.SetColumnProperty("gvRtr","Selected","ShowCaption",False)
+Gui.F_Router.GsGCRouter.SetColumnProperty("gvRtr","RouterDesc","Caption","Router Description")
+Gui.F_Router.GsGCRouter.SetColumnProperty("gvRtr","Router","HeaderHAlignment","Center")
+Gui.F_Router.GsGCRouter.SetColumnProperty("gvRtr","Line","HeaderHAlignment","Center")
+Gui.F_Router.GsGCRouter.SetColumnProperty("gvRtr","RouterDesc","HeaderHAlignment","Center")
+Gui.F_Router.GsGCRouter.SetColumnProperty("gvRtr","Description","HeaderHAlignment","Center")
+Gui.F_Router.GsGCRouter.SetColumnProperty("gvRtr","Line","CellHAlignment","Center")
+Gui.F_Router.GsGCRouter.SetColumnProperty("gvRtr","Router","MinWidth","120")
+Gui.F_Router.GsGCRouter.SetColumnProperty("gvRtr","Line","MinWidth","60")
+Gui.F_Router.GsGCRouter.SetColumnProperty("gvRtr","RouterDesc","MinWidth","180")
+Gui.F_Router.GsGCRouter.SetColumnProperty("gvRtr","Description","MinWidth","250")
+Gui.F_Router.GsGCRouter.SetColumnProperty("gvRtr","Selected","MinWidth","40")
+Gui.F_Router.GsGCRouter.SetColumnProperty("gvRtr","Selected","Fixed","Right")
+Gui.F_Router.GsGCRouter.SetColumnProperty("gvRtr","Selected","AllowEdit",True)
+Gui.F_Router.GsGCRouter.SetColumnProperty("gvRtr","Selected","ReadOnly",False)
+
+Gui.F_Router.GsGCRouter.Anchor(15)
+
+Gui.F_Router..Show
+Program.Sub.LoadRouter.End
+
+Program.Sub.cmdUpdate_Click.Start
+V.Local.i1.Declare
+V.Local.sDesc.Declare
+V.Local.sRtr.Declare
+V.Local.sRtrLine.Declare
+V.Local.sSQL.Declare
+
+V.Local.sRtr.Set(V.Passed.008000)
+F.Intrinsic.String.LPad(V.Passed.000111,"0",6,V.Local.sRtrLine)
+F.Intrinsic.String.Build("select text from v_rtr_seq_comments where rtr_number = '{0}' and rtr_seq = '{1}'",V.Local.sRtr.Trim,V.Local.sRtrLine.Trim,V.Local.sSQL)
+F.ODBC.Connection!conx.OpenLocalRecordsetRO("rst",V.Local.sSQL)
+F.Intrinsic.Control.If(V.ODBC.conx!rst.EOF)
+	F.Intrinsic.UI.Msgbox("No extra description record found for this router line")
+	F.ODBC.conx!rst.Close
+	F.Intrinsic.Control.CallSub(Unload)
+F.Intrinsic.Control.Else
+	V.Local.sDesc.Set(V.ODBC.conx!rst.FieldValTrim!text)
+F.Intrinsic.Control.EndIf
+F.ODBC.conx!rst.Close
+
+F.Intrinsic.Control.If(V.Local.sDesc.Trim,=,"")
+	F.Intrinsic.UI.Msgbox("Router line extra description is blank")
+	F.Intrinsic.Control.CallSub(Unload)
+F.Intrinsic.Control.Else
+	F.Intrinsic.Control.For(V.Local.i1,0,V.DataTable.dtRouter.RowCount--,1)
+		F.Intrinsic.Control.If(V.DataTable.dtRouter(V.Local.i1).Selected!FieldVal)
+			F.Intrinsic.String.Build("select text from rtr_seq_comments where rtr_number = '{0}' and rtr_seq = '{1}'",V.DataTable.dtRouter(V.Local.i1).Router!FieldValTrim,V.DataTable.dtRouter(V.Local.i1).Line!FieldValTrim,V.Local.sSQL)
+			F.ODBC.Connection!conx.OpenLocalRecordsetRW("rst",V.Local.sSQL)
+			F.Intrinsic.Control.If(V.ODBC.conx!rst.EOF)
+				F.Intrinsic.String.Build("insert into rtr_seq_comments(rtr_number,rtr_seq,text) values('{0}','{1}','{2}');",V.DataTable.dtRouter(V.Local.i1).Router!FieldValTrim,V.DataTable.dtRouter(V.Local.i1).Line!FieldValTrim,V.Local.sDesc.Trim,V.Local.sSQL)
+				F.ODBC.Connection!conx.Execute(V.Local.sSQL)
+			F.Intrinsic.Control.Else
+				F.ODBC.conx!rst.Set!text(V.Local.sDesc.Trim)
+				F.ODBC.conx!rst.Update
+			F.Intrinsic.Control.EndIf
+			F.ODBC.conx!rst.Close
+		F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.Next(V.Local.i1)
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.UI.Msgbox("Update Completed")
+F.Intrinsic.Control.CallSub(Unload)
+Program.Sub.cmdUpdate_Click.End
